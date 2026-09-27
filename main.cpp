@@ -222,6 +222,18 @@ std::string CmdList(const ParsedArgs&) {
     return arr.dump(); // 按 spec：list 返回裸数组
 }
 
+std::string CmdForeground(const ParsedArgs&) {
+    win32::TopWindowInfo w;
+    if (!win32::ForegroundWindowInfo(w)) return ErrStr("no_foreground_window");
+    json item;
+    item["hwnd"] = static_cast<long long>(reinterpret_cast<intptr_t>(w.hwnd));
+    item["title"] = WideToUtf8(w.title);
+    item["class_name"] = WideToUtf8(w.class_name);
+    item["pid"] = static_cast<long long>(w.pid);
+    item["elevated"] = win32::IsElevatedWindow(w.hwnd);
+    return item.dump();
+}
+
 std::string CmdSnapshot(const ParsedArgs& a, std::atomic<bool>* cancel) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
@@ -587,6 +599,7 @@ std::string CmdWindowState(const ParsedArgs& a) {
 std::string Dispatch(const ParsedArgs& a, std::atomic<bool>* cancel) {
     const std::string& c = a.cmd;
     if (c == "list")            return CmdList(a);
+    if (c == "foreground")      return CmdForeground(a);
     if (c == "snapshot")        return CmdSnapshot(a, cancel);
     if (c == "snapshot_all")    return CmdSnapshotAll(a, cancel);
     if (c == "find")            return CmdFind(a, cancel);
@@ -635,6 +648,7 @@ int wmain(int argc, wchar_t** argv) {
             "usage: uia_agent <command> [options]\n"
             "\n"
             "  list\n"
+            "  foreground\n"
             "  snapshot --hwnd <n> [--depth <n>]\n"
             "  snapshot_all [--depth <n>]\n"
             "  find --hwnd <n> --q <json>\n"

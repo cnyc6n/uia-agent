@@ -112,6 +112,16 @@ bool IsSelfElevated() {
     return ok && elev.TokenIsElevated != 0;
 }
 
+bool ForegroundWindowInfo(TopWindowInfo& out) {
+    HWND hwnd = GetForegroundWindow();
+    if (!hwnd) return false;
+    out.hwnd = hwnd;
+    out.class_name = ClassNameOf(hwnd);
+    out.title = TitleOf(hwnd);
+    GetWindowThreadProcessId(hwnd, &out.pid);
+    return true;
+}
+
 // ---- Win32 子窗口树（snapshot_all 降级后端）----
 namespace {
 

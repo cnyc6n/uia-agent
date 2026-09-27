@@ -31,6 +31,9 @@ bool IsElevatedWindow(HWND hwnd);
 // 当前进程是否以管理员（elevated）运行。
 bool IsSelfElevated();
 
+// 当前拥有键盘焦点的顶层窗口信息（GetForegroundWindow）。
+bool ForegroundWindowInfo(TopWindowInfo& out);
+
 // Win32 子窗口树（snapshot_all 降级后端）。返回节点数；root 始终 >= 1（含根）。
 int BuildChildTree(HWND hwnd, int maxDepth, int maxNodes,
                    std::atomic<bool>* cancel, UiNode& root);
