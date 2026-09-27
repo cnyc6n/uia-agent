@@ -237,7 +237,6 @@ std::string CmdForeground(const ParsedArgs&) {
 std::string CmdSnapshot(const ParsedArgs& a, std::atomic<bool>* cancel) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
-    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     int depth = DepthFromArgs(a, 8);
     UiNode root;
     int n = UiaBuildTree(hwnd, depth, kMaxNodes, cancel, root);
@@ -300,7 +299,6 @@ std::string CmdSnapshotAll(const ParsedArgs& a, std::atomic<bool>* cancel) {
 std::string CmdFind(const ParsedArgs& a, std::atomic<bool>* cancel) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
-    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     QueryFilter f;
     std::string err;
     if (!ParseFilter(a, f, err)) return ErrStr(err);
@@ -414,7 +412,6 @@ std::string CmdSetText(const ParsedArgs& a, std::atomic<bool>* cancel) {
 std::string CmdGetText(const ParsedArgs& a, std::atomic<bool>* cancel) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
-    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     QueryFilter f;
     std::string err;
     if (!ParseFilter(a, f, err)) return ErrStr(err);
@@ -544,7 +541,6 @@ std::string CmdSwipe(const ParsedArgs& a, std::atomic<bool>* cancel) {
 std::string CmdScreenshot(const ParsedArgs& a) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
-    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     cap::Shot shot = cap::CaptureWindow(hwnd);
     if (!shot.ok) return ErrStr(shot.err.empty() ? "capture_failed" : shot.err);
 
