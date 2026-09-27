@@ -49,7 +49,8 @@ jobs:
         shell: pwsh
         run: |
           $tag = "$env:GITHUB_REF_NAME"
-          gh release create "$tag" --repo "$env:GITHUB_REPOSITORY" --title "$tag" --generate-notes --clobber 2>&1 | Out-Host
+          # create if missing (ignore "already exists" errors)
+          gh release create "$tag" --repo "$env:GITHUB_REPOSITORY" --title "$tag" --generate-notes 2>&1 | Out-Host
           $exe = Join-Path $env:GITHUB_WORKSPACE 'build\uia_agent.exe'
           gh release upload "$tag" $exe --repo "$env:GITHUB_REPOSITORY" --clobber
         env:
