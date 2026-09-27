@@ -1,6 +1,6 @@
 # uia_agent — Windows UI Automation agent (single exe)
 
-> **[中文版](./README.zh.md) | English**
+> **[中文](./README.zh.md) | English**
 
 Enumerate, snapshot, find, click, set text, scroll, drag, swipe, screenshot, and
 control window state (topmost / maximize / minimize / restore / close) on Windows

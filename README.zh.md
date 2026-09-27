@@ -1,6 +1,6 @@
 # uia_agent — Windows UI Automation 代理（单 exe）
 
-> **[English](./README.md) | 中文版**
+> **[English](./README.md) | 中文**
 
 对 Windows 桌面窗口做：枚举、快照、查找、点击、设值、滚动、拖动、滑动、截屏、窗口状态控制（置顶/最大化/最小化/恢复/关闭）。
 
