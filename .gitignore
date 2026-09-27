@@ -1,0 +1,10 @@
+# build outputs
+build/
+*.exe
+
+# deps (junctions to host dsh node_modules)
+node_modules/
+
+# test scratch
+tests/
+test_doc.txt
