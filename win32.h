@@ -40,7 +40,8 @@ int BuildChildTree(HWND hwnd, int maxDepth, int maxNodes,
 
 // ---- 输入（全部走 SendInput，物理像素）----
 bool MouseMove(long x, long y);
-bool MouseLeftClick(long x, long y);   // 移动 + 按下 + 抬起
+bool MouseLeftClick(long x, long y);   // 移动 + 按下 + 抬起（左键单击）
+bool MouseClick(long x, long y, const char* button, int count); // button=left/right/middle, count=1/2
 bool MouseWheelAt(long x, long y, long delta); // positive delta = 滚轮向后(向上滚)
 bool DragPath(long x1, long y1, long x2, long y2, int steps, DWORD durationMs);
 bool TypeUnicode(const std::wstring& text);

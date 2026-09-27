@@ -200,20 +200,35 @@ bool MouseMove(long x, long y) {
     return SendInput(1, &in, sizeof(INPUT)) == 1;
 }
 
-bool MouseLeftClick(long x, long y) {
+// button: "left"|"right"|"middle"; count: 1 or 2 (double-click)
+bool MouseClick(long x, long y, const char* button, int count) {
     if (!MouseMove(x, y)) return false;
     Sleep(30);
-    INPUT down = {};
-    down.type = INPUT_MOUSE;
-    down.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
-    bool ok = SendInput(1, &down, sizeof(INPUT)) == 1;
-    Sleep(30);
-    INPUT up = {};
-    up.type = INPUT_MOUSE;
-    up.mi.dwFlags = MOUSEEVENTF_LEFTUP;
-    ok = SendInput(1, &up, sizeof(INPUT)) == 1 && ok;
-    return ok;
+    DWORD downFlag = MOUSEEVENTF_LEFTDOWN;
+    DWORD upFlag = MOUSEEVENTF_LEFTUP;
+    if (button && _stricmp(button, "right") == 0) {
+        downFlag = MOUSEEVENTF_RIGHTDOWN; upFlag = MOUSEEVENTF_RIGHTUP;
+    } else if (button && _stricmp(button, "middle") == 0) {
+        downFlag = MOUSEEVENTF_MIDDLEDOWN; upFlag = MOUSEEVENTF_MIDDLEUP;
+    }
+    if (count < 1) count = 1;
+    if (count > 2) count = 2;
+    for (int i = 0; i < count; ++i) {
+        INPUT down = {};
+        down.type = INPUT_MOUSE;
+        down.mi.dwFlags = downFlag;
+        if (SendInput(1, &down, sizeof(INPUT)) != 1) return false;
+        Sleep(30);
+        INPUT up = {};
+        up.type = INPUT_MOUSE;
+        up.mi.dwFlags = upFlag;
+        if (SendInput(1, &up, sizeof(INPUT)) != 1) return false;
+        if (count == 2 && i == 0) Sleep(50); // double-click pause
+    }
+    return true;
 }
+
+bool MouseLeftClick(long x, long y) { return MouseClick(x, y, "left", 1); }
 
 bool MouseWheelAt(long x, long y, long delta) {
     if (!MouseMove(x, y)) return false;

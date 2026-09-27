@@ -320,10 +320,15 @@ std::string CmdClick(const ParsedArgs& a, std::atomic<bool>* cancel) {
     long long x = 0, y = 0;
     bool hasXY = a.getLL("--x", x) && a.getLL("--y", y);
     if (hasXY) {
-        if (!win32::MouseLeftClick(static_cast<long>(x), static_cast<long>(y)))
+        std::string btn = a.get("--button", "left");
+        int cnt = 1;
+        a.getInt("--count", cnt);
+        if (!win32::MouseClick(static_cast<long>(x), static_cast<long>(y), btn.c_str(), cnt))
             return ErrStr("send_input_failed");
         json body;
         body["mode"] = "coordinate";
+        body["button"] = btn;
+        body["count"] = cnt;
         body["x"] = x;
         body["y"] = y;
         return OkStr(std::move(body));
@@ -353,11 +358,16 @@ std::string CmdClick(const ParsedArgs& a, std::atomic<bool>* cancel) {
     if (r.cx() <= 0 || r.cy() <= 0) return ErrStr("no_rect");
     long cx = r.left + r.cx() / 2;
     long cy = r.top + r.cy() / 2;
+    std::string btn = a.get("--button", "left");
+    int cnt = 1;
+    a.getInt("--count", cnt);
     win32::ForceForeground(hwnd);
-    if (!win32::MouseLeftClick(cx, cy)) return ErrStr("send_input_failed");
+    if (!win32::MouseClick(cx, cy, btn.c_str(), cnt)) return ErrStr("send_input_failed");
     json body;
     body["mode"] = mode;
     body["method"] = "mouse_click";
+    body["button"] = btn;
+    body["count"] = cnt;
     body["x"] = cx;
     body["y"] = cy;
     return OkStr(std::move(body));
