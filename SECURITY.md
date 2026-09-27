@@ -1,5 +1,7 @@
 # Security
 
+> **[中文](./SECURITY.zh.md) | English**
+
 ## What this repo builds
 
 `uia_agent.exe` is a pure command-line tool: it reads arguments on stdin,
