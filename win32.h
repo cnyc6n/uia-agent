@@ -25,6 +25,12 @@ std::wstring ClassNameOf(HWND hwnd);
 std::wstring TitleOf(HWND hwnd);
 bool IsFilteredClass(const std::wstring& cls);
 
+// 目标窗口是否属于 elevated（高完整性）进程：读其 TokenIntegrityLevel >= High。
+// 非管理员进程访问 elevated 窗口会被 UIPI 拦截（UIA 空树 / SendInput 被吞）。
+bool IsElevatedWindow(HWND hwnd);
+// 当前进程是否以管理员（elevated）运行。
+bool IsSelfElevated();
+
 // Win32 子窗口树（snapshot_all 降级后端）。返回节点数；root 始终 >= 1（含根）。
 int BuildChildTree(HWND hwnd, int maxDepth, int maxNodes,
                    std::atomic<bool>* cancel, UiNode& root);

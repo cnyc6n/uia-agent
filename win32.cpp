@@ -65,6 +65,53 @@ std::vector<TopWindowInfo> ListTopWindows() {
     return out;
 }
 
+// ---- integrity level / elevated detection (UIPI) ----
+
+// Read the mandatory-integrity SID RID of a process. Returns -1 if unreadable.
+static long ProcessIntegrityRid(DWORD pid) {
+    HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!h) return -1;
+    HANDLE tok = nullptr;
+    long rid = -1;
+    if (OpenProcessToken(h, TOKEN_QUERY, &tok)) {
+        DWORD size = 0;
+        GetTokenInformation(tok, TokenIntegrityLevel, nullptr, 0, &size);
+        if (size > 0 && size <= 4096) {
+            std::vector<BYTE> buf(size);
+            if (GetTokenInformation(tok, TokenIntegrityLevel, buf.data(), size, &size)) {
+                // TOKEN_MANDATORY_LABEL: { SID_AND_ATTRIBUTES Label; }
+                // Label is a PSID stored at offset sizeof(void*).
+                // TOKEN_MANDATORY_LABEL = { SID_AND_ATTRIBUTES Label; } with Label.Sid (PSID) first.
+                PSID sid = *reinterpret_cast<PSID*>(buf.data());
+                if (sid && IsValidSid(sid)) {
+                    DWORD subCount = *GetSidSubAuthorityCount(sid);
+                    if (subCount > 0) rid = (long)*GetSidSubAuthority(sid, subCount - 1);
+                }
+            }
+        }
+        CloseHandle(tok);
+    }
+    CloseHandle(h);
+    return rid;
+}
+
+bool IsElevatedWindow(HWND hwnd) {
+    DWORD pid = 0;
+    if (!GetWindowThreadProcessId(hwnd, &pid) || pid == 0) return false;
+    // SECURITY_MANDATORY_HIGH_RID = 0x00003000
+    return ProcessIntegrityRid(pid) >= 0x3000;
+}
+
+bool IsSelfElevated() {
+    HANDLE tok = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &tok)) return false;
+    TOKEN_ELEVATION elev = {};
+    DWORD size = 0;
+    BOOL ok = GetTokenInformation(tok, TokenElevation, &elev, sizeof(elev), &size);
+    CloseHandle(tok);
+    return ok && elev.TokenIsElevated != 0;
+}
+
 // ---- Win32 子窗口树（snapshot_all 降级后端）----
 namespace {
 

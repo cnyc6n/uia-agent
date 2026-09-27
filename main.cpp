@@ -198,6 +198,16 @@ bool ParseFilter(const ParsedArgs& a, QueryFilter& f, std::string& err) {
 
 // ================= 命令实现 =================
 
+
+// 若目标窗口属于 elevated 进程而自身非管理员，返回错误 JSON；否则返回空串。
+// UIPI 会拦截跨完整性级别的 UIA/消息，明确报错比返回空树更有用。
+std::string ElevatedGuard(HWND hwnd) {
+    if (win32::IsElevatedWindow(hwnd) && !win32::IsSelfElevated()) {
+        return ErrStr("elevated_requires_admin");
+    }
+    return std::string();
+}
+
 std::string CmdList(const ParsedArgs&) {
     json arr = json::array();
     for (const auto& w : win32::ListTopWindows()) {
@@ -206,6 +216,7 @@ std::string CmdList(const ParsedArgs&) {
         item["title"] = WideToUtf8(w.title);
         item["class_name"] = WideToUtf8(w.class_name);
         item["pid"] = static_cast<long long>(w.pid);
+        item["elevated"] = win32::IsElevatedWindow(w.hwnd);
         arr.push_back(std::move(item));
     }
     return arr.dump(); // 按 spec：list 返回裸数组
@@ -214,6 +225,7 @@ std::string CmdList(const ParsedArgs&) {
 std::string CmdSnapshot(const ParsedArgs& a, std::atomic<bool>* cancel) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     int depth = DepthFromArgs(a, 8);
     UiNode root;
     int n = UiaBuildTree(hwnd, depth, kMaxNodes, cancel, root);
@@ -234,10 +246,13 @@ std::string CmdSnapshotAll(const ParsedArgs& a, std::atomic<bool>* cancel) {
         item["hwnd"] = static_cast<long long>(reinterpret_cast<intptr_t>(w.hwnd));
         item["title"] = WideToUtf8(w.title);
         item["class_name"] = WideToUtf8(w.class_name);
+        bool isElev = win32::IsElevatedWindow(w.hwnd);
+        item["elevated"] = isElev;
 
         json states = json::array();
         if (IsIconic(w.hwnd)) states.push_back("minimized");
         if (!IsWindowVisible(w.hwnd)) states.push_back("invisible");
+        if (isElev && !win32::IsSelfElevated()) states.push_back("elevated");
 
         std::string backend = "uia";
         UiNode tree;
@@ -273,6 +288,7 @@ std::string CmdSnapshotAll(const ParsedArgs& a, std::atomic<bool>* cancel) {
 std::string CmdFind(const ParsedArgs& a, std::atomic<bool>* cancel) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     QueryFilter f;
     std::string err;
     if (!ParseFilter(a, f, err)) return ErrStr(err);
@@ -302,6 +318,7 @@ std::string CmdClick(const ParsedArgs& a, std::atomic<bool>* cancel) {
     }
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     QueryFilter f;
     std::string err;
     if (!ParseFilter(a, f, err)) return ErrStr(err);
@@ -337,6 +354,7 @@ std::string CmdClick(const ParsedArgs& a, std::atomic<bool>* cancel) {
 std::string CmdSetText(const ParsedArgs& a, std::atomic<bool>* cancel) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     std::string text = a.get("--text");
     if (text.empty()) return ErrStr("missing_arg_--text");
     QueryFilter f;
@@ -374,6 +392,7 @@ std::string CmdSetText(const ParsedArgs& a, std::atomic<bool>* cancel) {
 std::string CmdGetText(const ParsedArgs& a, std::atomic<bool>* cancel) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     QueryFilter f;
     std::string err;
     if (!ParseFilter(a, f, err)) return ErrStr(err);
@@ -391,6 +410,7 @@ std::string CmdGetText(const ParsedArgs& a, std::atomic<bool>* cancel) {
 std::string CmdScroll(const ParsedArgs& a, std::atomic<bool>* cancel) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     long long amount = 1;
     a.getLL("--amount", amount);
 
@@ -456,6 +476,7 @@ std::string CmdDrag(const ParsedArgs& a) {
 std::string CmdSwipe(const ParsedArgs& a, std::atomic<bool>* cancel) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     std::string dir = a.get("--direction");
     UiRect rect;
     if (a.hasKey("--q")) {
@@ -501,6 +522,7 @@ std::string CmdSwipe(const ParsedArgs& a, std::atomic<bool>* cancel) {
 std::string CmdScreenshot(const ParsedArgs& a) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     cap::Shot shot = cap::CaptureWindow(hwnd);
     if (!shot.ok) return ErrStr(shot.err.empty() ? "capture_failed" : shot.err);
 
@@ -528,6 +550,7 @@ std::string CmdScreenshot(const ParsedArgs& a) {
 std::string CmdWindowState(const ParsedArgs& a) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    { std::string eg = ElevatedGuard(hwnd); if (!eg.empty()) return eg; }
     if (!IsWindow(hwnd)) return ErrStr("invalid_window");
 
     const std::string& c = a.cmd;
