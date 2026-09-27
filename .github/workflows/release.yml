@@ -45,10 +45,12 @@ jobs:
             git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:master
           fi
 
-      - name: Attach exe to release
+      - name: Create release + attach exe
         shell: pwsh
         run: |
+          $tag = "$env:GITHUB_REF_NAME"
+          gh release create "$tag" --repo "$env:GITHUB_REPOSITORY" --title "$tag" --generate-notes --clobber 2>&1 | Out-Host
           $exe = Join-Path $env:GITHUB_WORKSPACE 'build\uia_agent.exe'
-          gh release upload "$env:GITHUB_REF_NAME" $exe --clobber
+          gh release upload "$tag" $exe --repo "$env:GITHUB_REPOSITORY" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
