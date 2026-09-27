@@ -1,0 +1,53 @@
+name: Build and Pack
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Pack b64 + hash
+        shell: pwsh
+        run: ./scripts/pack.ps1
+
+      - name: Verify assets round-trip
+        shell: pwsh
+        run: ./scripts/verify.ps1
+
+      - name: Commit artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/uia_agent.exe.b64 assets/uia_agent.exe.sha256
+          if git diff --cached --quiet; then
+            echo "no asset changes"
+          else
+            git commit -m "chore: update exe assets [skip ci]"
+            git push
+          fi
+
+      - name: Attach exe to release
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'build\uia_agent.exe'
+          gh release upload "$env:GITHUB_REF_NAME" $exe --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

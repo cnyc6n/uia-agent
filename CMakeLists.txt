@@ -30,7 +30,7 @@ target_compile_definitions(uia_agent PRIVATE
 )
 
 # nlohmann single-header JSON, reused from the user's existing copy (D:\文档\C++\json.hpp).
-target_include_directories(uia_agent PRIVATE "D:/文档/C++")
+target_include_directories(uia_agent PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 
 target_link_libraries(uia_agent PRIVATE
   Uiautomationcore
