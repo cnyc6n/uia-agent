@@ -50,7 +50,9 @@ bool SendKeys(const std::wstring& combo); // 组合键 "ctrl+c" / "alt+tab"
 void ForceForeground(HWND hwnd);
 
 // ---- 窗口状态（ShowWindow / SetWindowPos）----
-bool SetWindowTopmost(HWND hwnd, bool topmost); // WS_EX_TOPMOST 置顶 / 取消置顶
+bool SetWindowTopmost(HWND hwnd, bool topmost);
+bool GetWindowGeometry(HWND hwnd, long& x, long& y, long& w, long& h); // 读位置尺寸（物理像素）
+bool SetWindowGeometry(HWND hwnd, long x, long y, long w, long h); // 写位置尺寸 // WS_EX_TOPMOST 置顶 / 取消置顶
 bool MinimizeWindow(HWND hwnd);                 // SW_MINIMIZE
 bool MaximizeWindow(HWND hwnd);                 // SW_MAXIMIZE
 bool RestoreWindow(HWND hwnd);                  // SW_RESTORE

@@ -54,3 +54,14 @@ bool UiaInvoke(const UiaHit& hit);                       // IUIAutomationInvokeP
 bool UiaValuePatternGet(const UiaHit& hit, std::string& out); // 成功返回 true，out 为文本
 bool UiaValuePatternSet(const UiaHit& hit, const std::string& text);
 int  UiaScrollViaPattern(const UiaHit& hit, int amount); // 1=已滚, 0=无 pattern/不支持(落滚轮)
+
+// 读取命中原生的常用属性（IsEnabled/IsOffscreen/IsKeyboardFocusable + Value 文本）。
+// 返回 true 表示至少成功读到一个属性；结果经 out 参数回填。
+struct UiProps {
+    bool enabled = false;
+    bool offscreen = false;
+    bool focusable = false;
+    bool hasValue = false;
+    std::string value;   // ValuePattern 文本（如有）
+};
+bool UiaGetProps(const UiaHit& hit, UiProps& out);

@@ -440,4 +440,21 @@ bool ClipboardSetText(const std::wstring& text) {
     return ok;
 }
 
+
+// ---- 窗口几何 ----
+bool GetWindowGeometry(HWND hwnd, long& x, long& y, long& w, long& h) {
+    RECT r;
+    if (!GetWindowRect(hwnd, &r)) return false;
+    x = r.left; y = r.top;
+    w = r.right - r.left; h = r.bottom - r.top;
+    return true;
+}
+
+bool SetWindowGeometry(HWND hwnd, long x, long y, long w, long h) {
+    if (w <= 0 || h <= 0) return false;
+    return SetWindowPos(hwnd, nullptr, static_cast<int>(x), static_cast<int>(y),
+                        static_cast<int>(w), static_cast<int>(h),
+                        SWP_NOZORDER | SWP_NOACTIVATE) != FALSE;
+}
+
 } // namespace win32

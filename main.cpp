@@ -236,6 +236,61 @@ std::string CmdForeground(const ParsedArgs&) {
 
 std::string Dispatch(const ParsedArgs& a, std::atomic<bool>* cancel);
 
+std::string CmdProps(const ParsedArgs& a, std::atomic<bool>* cancel) {
+    HWND hwnd;
+    if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    QueryFilter f;
+    std::string err;
+    if (!ParseFilter(a, f, err)) return ErrStr(err);
+    std::vector<UiaHit> hits;
+    UiaFindElements(hwnd, f, kMaxNodes, cancel, hits);
+    if (hits.empty()) return ErrStr("not_found");
+    const UiaHit& hit = hits[0];
+    UiProps p;
+    bool any = UiaGetProps(hit, p);
+    json body;
+    body["name"] = hit.info.name;
+    body["control_type"] = hit.info.control_type;
+    body["automation_id"] = hit.info.automation_id;
+    if (any) {
+        body["enabled"] = p.enabled;
+        body["offscreen"] = p.offscreen;
+        body["focusable"] = p.focusable;
+        if (p.hasValue) body["value"] = p.value;
+    }
+    return OkStr(std::move(body));
+}
+
+std::string CmdGeometry(const ParsedArgs& a) {
+    HWND hwnd;
+    if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    // 写模式：--x --y --w --h（至少传一个写参数）
+    bool hasX = a.hasKey("x"), hasY = a.hasKey("y"), hasW = a.hasKey("w"), hasH = a.hasKey("h");
+    if (hasX || hasY || hasW || hasH) {
+        long x = 0, y = 0, w = 0, h = 0;
+        long long v = 0;
+        if (hasX && a.getLL("x", v)) x = static_cast<long>(v);
+        if (hasY && a.getLL("y", v)) y = static_cast<long>(v);
+        if (hasW && a.getLL("w", v)) w = static_cast<long>(v);
+        if (hasH && a.getLL("h", v)) h = static_cast<long>(v);
+        long cx, cy, cw, ch;
+        if (!win32::GetWindowGeometry(hwnd, cx, cy, cw, ch)) return ErrStr("geometry_failed");
+        if (!hasX) x = cx; if (!hasY) y = cy; if (!hasW) w = cw; if (!hasH) h = ch;
+        if (!win32::SetWindowGeometry(hwnd, x, y, w, h)) return ErrStr("geometry_failed");
+        json body;
+        body["mode"] = "set";
+        body["x"] = x; body["y"] = y; body["w"] = w; body["h"] = h;
+        return OkStr(std::move(body));
+    }
+    // 读模式
+    long x, y, w, h;
+    if (!win32::GetWindowGeometry(hwnd, x, y, w, h)) return ErrStr("geometry_failed");
+    json body;
+    body["mode"] = "get";
+    body["x"] = x; body["y"] = y; body["w"] = w; body["h"] = h;
+    return OkStr(std::move(body));
+}
+
 std::string CmdSendKeys(const ParsedArgs& a) {
     std::string keys = a.get("--keys");
     if (keys.empty()) return ErrStr("missing_arg_--keys");
@@ -568,17 +623,37 @@ std::string CmdDrag(const ParsedArgs& a) {
     int duration = 300;
     a.getInt("--duration", duration);
     if (duration < 0) duration = 0;
-    int steps = static_cast<int>(duration / 20);
+    int holdMs = 0;
+    a.getInt("--hold_ms", holdMs);
+    if (holdMs < 0) holdMs = 0;
+    if (holdMs > 5000) holdMs = 5000;
+    int steps = 0;
+    a.getInt("--steps", steps);
+    if (steps < 2) steps = static_cast<int>(duration / 20);
     if (steps < 2) steps = 2;
-    if (steps > 60) steps = 60;
+    if (steps > 120) steps = 120;
     if (!win32::DragPath(static_cast<long>(x1), static_cast<long>(y1),
                          static_cast<long>(x2), static_cast<long>(y2),
                          steps, static_cast<DWORD>(duration)))
         return ErrStr("send_input_failed");
+    if (holdMs > 0) {
+        // 按住起点停留 hold_ms（用于拖放等待/长按）
+        INPUT down = {};
+        down.type = INPUT_MOUSE;
+        down.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
+        SendInput(1, &down, sizeof(INPUT));
+        Sleep(holdMs);
+        INPUT up = {};
+        up.type = INPUT_MOUSE;
+        up.mi.dwFlags = MOUSEEVENTF_LEFTUP;
+        SendInput(1, &up, sizeof(INPUT));
+    }
     json body;
     body["from"] = json::array({x1, y1});
     body["to"] = json::array({x2, y2});
     body["duration"] = duration;
+    body["steps"] = steps;
+    body["hold_ms"] = holdMs;
     return OkStr(std::move(body));
 }
 
@@ -697,6 +772,8 @@ std::string Dispatch(const ParsedArgs& a, std::atomic<bool>* cancel) {
     if (c == "list")            return CmdList(a);
     if (c == "foreground")      return CmdForeground(a);
     if (c == "send_keys")       return CmdSendKeys(a);
+    if (c == "geometry")        return CmdGeometry(a);
+    if (c == "props")           return CmdProps(a, cancel);
     if (c == "clipboard")       return CmdClipboard(a);
     if (c == "wait_for")        return CmdWaitFor(a, cancel);
     if (c == "foreach")         return CmdForeach(a, cancel);

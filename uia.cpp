@@ -294,6 +294,44 @@ bool UiaInvoke(const UiaHit& hit) {
     return SUCCEEDED(ip->Invoke());
 }
 
+bool UiaGetProps(const UiaHit& hit, UiProps& out) {
+    out = UiProps{};
+    if (!hit.ref) return false;
+    auto& el = Unwrap(hit.ref);
+    if (!el) return false;
+    bool any = false;
+
+    VARIANT v; VariantInit(&v);
+    if (SUCCEEDED(el->GetCurrentPropertyValue(UIA_IsEnabledPropertyId, &v))) {
+        if (v.vt == VT_BOOL) { out.enabled = v.boolVal != 0; any = true; }
+    }
+    VariantClear(&v); VariantInit(&v);
+    if (SUCCEEDED(el->GetCurrentPropertyValue(UIA_IsOffscreenPropertyId, &v))) {
+        if (v.vt == VT_BOOL) { out.offscreen = v.boolVal != 0; any = true; }
+    }
+    VariantClear(&v); VariantInit(&v);
+    if (SUCCEEDED(el->GetCurrentPropertyValue(UIA_IsKeyboardFocusablePropertyId, &v))) {
+        if (v.vt == VT_BOOL) { out.focusable = v.boolVal != 0; any = true; }
+    }
+    VariantClear(&v);
+
+    // ValuePattern 文本
+    ComPtr<IUnknown> unk;
+    if (SUCCEEDED(el->GetCurrentPattern(UIA_ValuePatternId, unk.GetAddressOf())) && unk) {
+        ComPtr<IUIAutomationValuePattern> vp;
+        if (SUCCEEDED(unk.As(&vp))) {
+            BSTR val = nullptr;
+            if (SUCCEEDED(vp->get_CurrentValue(&val)) && val) {
+                out.hasValue = true;
+                out.value = WideToUtf8(val, static_cast<int>(SysStringLen(val)));
+                SysFreeString(val);
+                any = true;
+            }
+        }
+    }
+    return any;
+}
+
 bool UiaValuePatternGet(const UiaHit& hit, std::string& out) {
     if (!hit.ref) return false;
     auto& el = Unwrap(hit.ref);
