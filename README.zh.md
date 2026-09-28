@@ -42,6 +42,10 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 | `set_text --hwnd <n> --q <json> --text <s>` | 优先 ValuePattern::SetValue，失败退化 点击+Ctrl+A+键入（KEYEVENTF_UNICODE，支持中文） |
 | `get_text --hwnd <n> --q <json>` | ValuePattern 读值 |
 | `scroll --hwnd <n> [--q <json>] [--amount <n>]` | 有 ScrollPattern 走 pattern；否则 rect 中心滚轮（amount>0 下滚，<0 上滚） |
+| `send_keys --keys <组合键>` | 发送键盘组合键：ctrl+c / alt+tab / shift+f10 / win+e（25+ 命名按键） |
+| `clipboard --set <文本>` / `clipboard` | 写剪贴板文本，或读取（CF_UNICODETEXT） |
+| `wait_for --hwnd <n> --q <json> [--timeout_ms] [--interval_ms]` | 轮询直到匹配控件出现（默认 5000ms 超时 / 300ms 间隔） |
+| `foreach --cmd <子命令> [--args <json>]` | 对每个可见顶层窗口执行子命令（snapshot/close/find/...） |
 | `drag --x1 <n> --y1 <n> --x2 <n> --y2 <n> [--duration <ms>]` | SendInput 按下→分步移动→抬起，默认 300ms |
 | `swipe --hwnd <n> [--q <json>] --direction up\|down\|left\|right [--distance <px>]` | 控件矩形内滑动 |
 | `screenshot --hwnd <n> [--out <file.png>] [--base64]` | PrintWindow 抓图，PNG 由 WIC 编码；`--out` 写文件，否则输出 base64 |
