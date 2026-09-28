@@ -276,7 +276,7 @@ std::string CmdWaitFor(const ParsedArgs& a, std::atomic<bool>* cancel) {
     std::vector<UiaHit> hits;
     while (true) {
         hits.clear();
-        UiaFindElements(hwnd, f, 10, cancel, hits);
+        UiaFindElements(hwnd, f, kMaxNodes, cancel, hits);
         if (!hits.empty()) {
             json body;
             body["found"] = static_cast<int>(hits.size());
