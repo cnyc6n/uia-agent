@@ -46,6 +46,7 @@ bool MouseWheelAt(long x, long y, long delta); // positive delta = 滚轮向后(
 bool DragPath(long x1, long y1, long x2, long y2, int steps, DWORD durationMs);
 bool TypeUnicode(const std::wstring& text);
 bool SendCtrlA();
+bool SendKeys(const std::wstring& combo); // 组合键 "ctrl+c" / "alt+tab"
 void ForceForeground(HWND hwnd);
 
 // ---- 窗口状态（ShowWindow / SetWindowPos）----
@@ -54,5 +55,9 @@ bool MinimizeWindow(HWND hwnd);                 // SW_MINIMIZE
 bool MaximizeWindow(HWND hwnd);                 // SW_MAXIMIZE
 bool RestoreWindow(HWND hwnd);                  // SW_RESTORE
 bool CloseWindow(HWND hwnd);                    // 发送 WM_CLOSE（应用可拦截/保存）
+
+// ---- 剪贴板 ----
+bool ClipboardGetText(std::wstring& out);  // 读剪贴板文本（UTF-16）
+bool ClipboardSetText(const std::wstring& text); // 写剪贴板文本
 
 } // namespace win32

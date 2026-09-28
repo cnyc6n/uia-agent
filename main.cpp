@@ -234,6 +234,96 @@ std::string CmdForeground(const ParsedArgs&) {
     return item.dump();
 }
 
+std::string Dispatch(const ParsedArgs& a, std::atomic<bool>* cancel);
+
+std::string CmdSendKeys(const ParsedArgs& a) {
+    std::string keys = a.get("--keys");
+    if (keys.empty()) return ErrStr("missing_arg_--keys");
+    if (!win32::SendKeys(Utf8ToWide(keys))) return ErrStr("bad_keys");
+    json body;
+    body["keys"] = keys;
+    return OkStr(std::move(body));
+}
+
+std::string CmdClipboard(const ParsedArgs& a) {
+    std::string setText = a.get("--set");
+    if (!setText.empty()) {
+        if (!win32::ClipboardSetText(Utf8ToWide(setText))) return ErrStr("clipboard_failed");
+        json body;
+        body["mode"] = "set";
+        return OkStr(std::move(body));
+    }
+    std::wstring text;
+    if (!win32::ClipboardGetText(text)) return ErrStr("clipboard_failed");
+    json body;
+    body["mode"] = "get";
+    body["text"] = WideToUtf8(text);
+    return OkStr(std::move(body));
+}
+
+std::string CmdWaitFor(const ParsedArgs& a, std::atomic<bool>* cancel) {
+    HWND hwnd;
+    if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
+    QueryFilter f;
+    std::string err;
+    if (!ParseFilter(a, f, err)) return ErrStr(err);
+    int timeoutMs = 5000, intervalMs = 300;
+    a.getInt("--timeout_ms", timeoutMs);
+    a.getInt("--interval_ms", intervalMs);
+    if (timeoutMs < 0) timeoutMs = 0;
+    if (intervalMs < 50) intervalMs = 50;
+    auto t0 = std::chrono::steady_clock::now();
+    std::vector<UiaHit> hits;
+    while (true) {
+        hits.clear();
+        UiaFindElements(hwnd, f, 10, cancel, hits);
+        if (!hits.empty()) {
+            json body;
+            body["found"] = static_cast<int>(hits.size());
+            body["waited_ms"] = static_cast<long long>(
+                std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count());
+            return OkStr(std::move(body));
+        }
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count() >= timeoutMs) {
+            return ErrStr("timeout");
+        }
+        if (cancel && cancel->load()) return ErrStr("cancelled");
+        Sleep(intervalMs);
+    }
+}
+
+std::string CmdForeach(const ParsedArgs& a, std::atomic<bool>* cancel) {
+    std::string sub = a.get("--cmd");
+    if (sub.empty()) return ErrStr("missing_arg_--cmd");
+    json wins = json::array();
+    for (const auto& w : win32::ListTopWindows()) {
+        // 构造子命令参数：--hwnd <n> + 传入的 --args（JSON 对象转 --k v）
+        ParsedArgs subArgs;
+        subArgs.cmd = sub;
+        subArgs.kv.push_back({"hwnd", std::to_string(reinterpret_cast<intptr_t>(w.hwnd))});
+        std::string argsJson = a.get("--args");
+        if (!argsJson.empty()) {
+            try {
+                json j = json::parse(argsJson);
+                if (j.is_object()) {
+                    for (auto it = j.begin(); it != j.end(); ++it) {
+                        std::string v = it.value().is_string() ? it.value().get<std::string>() : it.value().dump();
+                        subArgs.kv.push_back({it.key(), v});
+                    }
+                }
+            } catch (...) { /* ignore bad args */ }
+        }
+        std::string result = Dispatch(subArgs, cancel);
+        json item;
+        item["hwnd"] = static_cast<long long>(reinterpret_cast<intptr_t>(w.hwnd));
+        item["result"] = result;
+        wins.push_back(std::move(item));
+    }
+    json body;
+    body["windows"] = std::move(wins);
+    return OkStr(std::move(body));
+}
+
 std::string CmdSnapshot(const ParsedArgs& a, std::atomic<bool>* cancel) {
     HWND hwnd;
     if (!GetHwnd(a, hwnd)) return ErrStr("missing_arg_--hwnd");
@@ -606,6 +696,10 @@ std::string Dispatch(const ParsedArgs& a, std::atomic<bool>* cancel) {
     const std::string& c = a.cmd;
     if (c == "list")            return CmdList(a);
     if (c == "foreground")      return CmdForeground(a);
+    if (c == "send_keys")       return CmdSendKeys(a);
+    if (c == "clipboard")       return CmdClipboard(a);
+    if (c == "wait_for")        return CmdWaitFor(a, cancel);
+    if (c == "foreach")         return CmdForeach(a, cancel);
     if (c == "snapshot")        return CmdSnapshot(a, cancel);
     if (c == "snapshot_all")    return CmdSnapshotAll(a, cancel);
     if (c == "find")            return CmdFind(a, cancel);

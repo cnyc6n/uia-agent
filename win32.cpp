@@ -291,6 +291,74 @@ bool SendCtrlA() {
     return ok;
 }
 
+// 组合键解析："ctrl+c" / "alt+tab" / "shift+f10" / "win+e"。修饰键支持 ctrl/alt/shift/win。
+bool SendKeys(const std::wstring& combo) {
+    // tokenize by '+'
+    std::vector<std::wstring> parts;
+    size_t start = 0;
+    while (start <= combo.size()) {
+        size_t pos = combo.find(L'+', start);
+        std::wstring tok = combo.substr(start, pos == std::wstring::npos ? std::wstring::npos : pos - start);
+        for (auto& ch : tok) if (ch >= L'a' && ch <= L'z') ch = ch - L'a' + L'A';
+        if (!tok.empty()) parts.push_back(tok);
+        if (pos == std::wstring::npos) break;
+        start = pos + 1;
+    }
+    // map tokens to VK codes
+    std::vector<WORD> mods, keys;
+    for (const auto& t : parts) {
+        if (t == L"CTRL" || t == L"CONTROL") mods.push_back(VK_CONTROL);
+        else if (t == L"ALT") mods.push_back(VK_MENU);
+        else if (t == L"SHIFT") mods.push_back(VK_SHIFT);
+        else if (t == L"WIN") mods.push_back(VK_LWIN);
+        else if (t == L"ENTER" || t == L"RETURN") keys.push_back(VK_RETURN);
+        else if (t == L"TAB") keys.push_back(VK_TAB);
+        else if (t == L"ESC" || t == L"ESCAPE") keys.push_back(VK_ESCAPE);
+        else if (t == L"SPACE") keys.push_back(VK_SPACE);
+        else if (t == L"BACKSPACE") keys.push_back(VK_BACK);
+        else if (t == L"DELETE") keys.push_back(VK_DELETE);
+        else if (t == L"INSERT") keys.push_back(VK_INSERT);
+        else if (t == L"HOME") keys.push_back(VK_HOME);
+        else if (t == L"END") keys.push_back(VK_END);
+        else if (t == L"PAGEUP") keys.push_back(VK_PRIOR);
+        else if (t == L"PAGEDOWN") keys.push_back(VK_NEXT);
+        else if (t == L"UP") keys.push_back(VK_UP);
+        else if (t == L"DOWN") keys.push_back(VK_DOWN);
+        else if (t == L"LEFT") keys.push_back(VK_LEFT);
+        else if (t == L"RIGHT") keys.push_back(VK_RIGHT);
+        else if (t == L"F1") keys.push_back(VK_F1);
+        else if (t == L"F2") keys.push_back(VK_F2);
+        else if (t == L"F3") keys.push_back(VK_F3);
+        else if (t == L"F4") keys.push_back(VK_F4);
+        else if (t == L"F5") keys.push_back(VK_F5);
+        else if (t == L"F6") keys.push_back(VK_F6);
+        else if (t == L"F7") keys.push_back(VK_F7);
+        else if (t == L"F8") keys.push_back(VK_F8);
+        else if (t == L"F9") keys.push_back(VK_F9);
+        else if (t == L"F10") keys.push_back(VK_F10);
+        else if (t == L"F11") keys.push_back(VK_F11);
+        else if (t == L"F12") keys.push_back(VK_F12);
+        else if (t.size() == 1) keys.push_back(static_cast<WORD>(t[0])); // single char
+        else return false; // unknown key
+    }
+    if (keys.empty()) return false;
+    // send: mods down, key down/up, mods up
+    std::vector<INPUT> in;
+    auto press = [&](WORD vk, bool down) {
+        INPUT x = {};
+        x.type = INPUT_KEYBOARD;
+        x.ki.wVk = vk;
+        if (!down) x.ki.dwFlags = KEYEVENTF_KEYUP;
+        in.push_back(x);
+    };
+    for (WORD m : mods) press(m, true);
+    for (WORD k : keys) press(k, true);
+    for (WORD k : keys) press(k, false);
+    for (auto it = mods.rbegin(); it != mods.rend(); ++it) press(*it, false);
+    UINT sent = SendInput(static_cast<UINT>(in.size()), in.data(), sizeof(INPUT));
+    return sent == in.size();
+}
+
 // ---- 窗口状态 ----
 bool SetWindowTopmost(HWND hwnd, bool topmost) {
     HWND after = topmost ? HWND_TOPMOST : HWND_NOTOPMOST;
@@ -330,6 +398,46 @@ void ForceForeground(HWND hwnd) {
         SetForegroundWindow(hwnd);
     }
     Sleep(60);
+}
+
+
+// ---- clipboard ----
+bool ClipboardGetText(std::wstring& out) {
+    out.clear();
+    if (!OpenClipboard(nullptr)) return false;
+    bool ok = false;
+    HANDLE h = GetClipboardData(CF_UNICODETEXT);
+    if (h) {
+        const wchar_t* p = static_cast<const wchar_t*>(GlobalLock(h));
+        if (p) {
+            out = p;
+            GlobalUnlock(h);
+            ok = true;
+        }
+    }
+    CloseClipboard();
+    return ok;
+}
+
+bool ClipboardSetText(const std::wstring& text) {
+    if (!OpenClipboard(nullptr)) return false;
+    EmptyClipboard();
+    size_t bytes = (text.size() + 1) * sizeof(wchar_t);
+    HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, bytes);
+    bool ok = false;
+    if (h) {
+        void* p = GlobalLock(h);
+        if (p) {
+            memcpy(p, text.c_str(), bytes);
+            GlobalUnlock(h);
+            ok = SetClipboardData(CF_UNICODETEXT, h) != FALSE;
+            if (!ok) GlobalFree(h);
+        } else {
+            GlobalFree(h);
+        }
+    }
+    CloseClipboard();
+    return ok;
 }
 
 } // namespace win32
