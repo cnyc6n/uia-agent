@@ -403,11 +403,11 @@ std::string CmdBatch(const ParsedArgs& a, std::atomic<bool>* cancel) {
     return OkStr(std::move(body));
 }
 
-std::string CmdShowDesktop(const ParsedArgs&) {
+std::string CmdToggleDesktop(const ParsedArgs&) {
     // 官方 Shell COM 接口切换桌面（等效 Win+D，可靠，不依赖快捷键模拟/任务栏坐标）
     if (!win32::ShowDesktop()) return ErrStr("toggle_desktop_failed");
     json body;
-    body["mode"] = "show_desktop";
+    body["mode"] = "toggle_desktop";
     body["method"] = "shell_toggledesktop";
     return OkStr(std::move(body));
 }
@@ -893,7 +893,7 @@ std::string Dispatch(const ParsedArgs& a, std::atomic<bool>* cancel) {
     if (c == "list")            return CmdList(a);
     if (c == "foreground")      return CmdForeground(a);
     if (c == "send_keys")       return CmdSendKeys(a);
-    if (c == "show_desktop")    return CmdShowDesktop(a);
+    if (c == "toggle_desktop")    return CmdToggleDesktop(a);
     if (c == "batch")           return CmdBatch(a, cancel);
     if (c == "geometry")        return CmdGeometry(a);
     if (c == "props")           return CmdProps(a, cancel);
