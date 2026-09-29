@@ -54,6 +54,8 @@ they are not in the static import table — that is expected).
 | `clipboard --set <text>` / `clipboard` | Write clipboard text, or read it (CF_UNICODETEXT) |
 | `wait_for --hwnd <n> --q <json> [--timeout_ms] [--interval_ms]` | Poll until a matching control appears (default 5000ms timeout / 300ms interval) |
 | `foreach --cmd <sub> [--args <json>]` | Run a sub-command (snapshot/close/find/...) on every visible top-level window |
+| `desktop [--limit <n>] [--name <s>]` | Find desktop icon host (Progman/WorkerW) and list icons (name+coords); --limit max icons (0=all, default 60), --name substring filter |
+| *all* | `--timeout <ms>` global UIA call timeout (default 5000) |
 | `drag --x1 <n> --y1 <n> --x2 <n> --y2 <n> [--duration <ms>]` | SendInput press → stepped move → release; default 300ms |
 | `swipe --hwnd <n> [--q <json>] --direction up\|down\|left\|right [--distance <px>]` | Swipe inside the control rect |
 | `screenshot --hwnd <n> [--out <file.png>] [--base64]` | PrintWindow capture, PNG via WIC; `--out` writes a file, otherwise base64 |

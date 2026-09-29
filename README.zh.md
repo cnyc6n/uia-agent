@@ -46,6 +46,8 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 | `clipboard --set <文本>` / `clipboard` | 写剪贴板文本，或读取（CF_UNICODETEXT） |
 | `wait_for --hwnd <n> --q <json> [--timeout_ms] [--interval_ms]` | 轮询直到匹配控件出现（默认 5000ms 超时 / 300ms 间隔） |
 | `foreach --cmd <子命令> [--args <json>]` | 对每个可见顶层窗口执行子命令（snapshot/close/find/...） |
+| `desktop [--limit <n>] [--name <s>]` | 定位桌面图标宿主（Progman/WorkerW）并列出图标（名称+坐标）；--limit 返回上限（0=全部，默认 60），--name 子串过滤 |
+| *所有命令* | `--timeout <ms>` 全局 UIA 调用超时（默认 5000） |
 | `drag --x1 <n> --y1 <n> --x2 <n> --y2 <n> [--duration <ms>]` | SendInput 按下→分步移动→抬起，默认 300ms |
 | `swipe --hwnd <n> [--q <json>] --direction up\|down\|left\|right [--distance <px>]` | 控件矩形内滑动 |
 | `screenshot --hwnd <n> [--out <file.png>] [--base64]` | PrintWindow 抓图，PNG 由 WIC 编码；`--out` 写文件，否则输出 base64 |
