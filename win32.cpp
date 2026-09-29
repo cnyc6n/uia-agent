@@ -1,5 +1,9 @@
 #include "win32.h"
 #include <windows.h>
+#include <ShlDisp.h>
+#include <oleauto.h>
+
+
 #include <cstdlib>
 #include <cwchar>
 #include "util.h"
@@ -348,7 +352,11 @@ bool SendKeys(const std::wstring& combo) {
         INPUT x = {};
         x.type = INPUT_KEYBOARD;
         x.ki.wVk = vk;
-        if (!down) x.ki.dwFlags = KEYEVENTF_KEYUP;
+        // VK_LWIN / VK_RWIN 是扩展键，需要 KEYEVENTF_EXTENDEDKEY 才能触发系统级 Win 快捷键
+        if (vk == VK_LWIN || vk == VK_RWIN) {
+            x.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
+        }
+        if (!down) x.ki.dwFlags |= KEYEVENTF_KEYUP;
         in.push_back(x);
     };
     for (WORD m : mods) press(m, true);
@@ -492,6 +500,33 @@ HWND FindDesktopIconHost() {
     if (h) return h;
     // 兜底：Progman 本身（即使无 DefView 也返回，让调用方尝试）
     return progman;
+}
+
+bool ShowDesktop() {
+    // 官方 Shell COM 接口切换桌面（等效 Win+D）。用 IDispatch 动态调用 ToggleDesktop，
+    // 避免依赖 IShellDispatch4 头文件（部分 SDK 未包含）。
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    bool ok = false;
+    IDispatch* disp = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_Shell, nullptr, CLSCTX_INPROC_SERVER,
+                                  IID_IDispatch, reinterpret_cast<void**>(&disp));
+    if (SUCCEEDED(hr) && disp) {
+        DISPID dispid = 0;
+        OLECHAR name[] = L"ToggleDesktop";
+        LPOLESTR namePtr = name;
+        if (SUCCEEDED(disp->GetIDsOfNames(IID_NULL, &namePtr, 1, LOCALE_USER_DEFAULT, &dispid))) {
+            DISPPARAMS params = {};
+            VARIANT result;
+            VariantInit(&result);
+            hr = disp->Invoke(dispid, IID_NULL, LOCALE_USER_DEFAULT, DISPATCH_METHOD,
+                              &params, &result, nullptr, nullptr);
+            ok = SUCCEEDED(hr);
+            VariantClear(&result);
+        }
+        disp->Release();
+    }
+    CoUninitialize();
+    return ok;
 }
 
 } // namespace win32

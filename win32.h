@@ -47,6 +47,7 @@ bool DragPath(long x1, long y1, long x2, long y2, int steps, DWORD durationMs);
 bool TypeUnicode(const std::wstring& text);
 bool SendCtrlA();
 bool SendKeys(const std::wstring& combo); // 组合键 "ctrl+c" / "alt+tab"
+bool ShowDesktop(); // 全局桌面最小化（等效 Win+D，用 IShellDispatch4::ToggleDesktop）
 void ForceForeground(HWND hwnd);
 
 // ---- 窗口状态（ShowWindow / SetWindowPos）----

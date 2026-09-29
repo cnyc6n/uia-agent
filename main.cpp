@@ -329,6 +329,15 @@ std::string CmdGeometry(const ParsedArgs& a) {
     return OkStr(std::move(body));
 }
 
+std::string CmdShowDesktop(const ParsedArgs&) {
+    // 官方 Shell COM 接口切换桌面（等效 Win+D，可靠，不依赖快捷键模拟/任务栏坐标）
+    if (!win32::ShowDesktop()) return ErrStr("toggle_desktop_failed");
+    json body;
+    body["mode"] = "show_desktop";
+    body["method"] = "shell_toggledesktop";
+    return OkStr(std::move(body));
+}
+
 std::string CmdSendKeys(const ParsedArgs& a) {
     std::string keys = a.get("--keys");
     if (keys.empty()) return ErrStr("missing_arg_--keys");
@@ -810,6 +819,7 @@ std::string Dispatch(const ParsedArgs& a, std::atomic<bool>* cancel) {
     if (c == "list")            return CmdList(a);
     if (c == "foreground")      return CmdForeground(a);
     if (c == "send_keys")       return CmdSendKeys(a);
+    if (c == "show_desktop")    return CmdShowDesktop(a);
     if (c == "geometry")        return CmdGeometry(a);
     if (c == "props")           return CmdProps(a, cancel);
     if (c == "desktop")         return CmdDesktop(a, cancel);
