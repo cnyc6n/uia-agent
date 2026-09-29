@@ -269,18 +269,33 @@ std::string CmdDesktop(const ParsedArgs& a, std::atomic<bool>* cancel) {
     QueryFilter f;
     f.has_type = true;
     f.control_type = "ListItem";
+    std::string nameFilter = a.get("--name");
+    if (!nameFilter.empty()) {
+        f.has_name = true;
+        f.name = nameFilter; // 子串匹配（大小写不敏感）
+    }
     UiaFindElements(host, f, 5000, cancel, hits);
+    // --limit: 返回图标数量上限；默认 60；0 = 全部
+    int limit = 60;
+    a.getInt("--limit", limit);
+    if (limit < 0) limit = 0;
     json body;
     body["hwnd"] = static_cast<long long>(reinterpret_cast<intptr_t>(host));
+    body["total"] = static_cast<int>(hits.size());
+    body["limit"] = limit;
     body["icons"] = json::array();
+    int shown = 0;
     for (const auto& h : hits) {
+        if (limit > 0 && shown >= limit) break;
         json item;
         item["name"] = h.info.name;
         item["control_type"] = h.info.control_type;
         item["x"] = h.info.rect.left + h.info.rect.cx() / 2;
         item["y"] = h.info.rect.top + h.info.rect.cy() / 2;
         body["icons"].push_back(std::move(item));
+        shown++;
     }
+    body["filtered"] = !nameFilter.empty();
     return OkStr(std::move(body));
 }
 
