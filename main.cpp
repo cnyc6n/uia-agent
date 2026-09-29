@@ -329,6 +329,80 @@ std::string CmdGeometry(const ParsedArgs& a) {
     return OkStr(std::move(body));
 }
 
+std::string CmdBatch(const ParsedArgs& a, std::atomic<bool>* cancel) {
+    // --steps: JSON array; --stop_on_error flag: stop at first failure (default: continue)
+    std::string stepsJson = a.get("--steps");
+    // --steps-file: 从文件读 steps JSON（避免命令行引号丢失）
+    std::string stepsFile = a.get("--steps-file");
+    if (!stepsFile.empty()) {
+        FILE* fp = nullptr;
+        if (fopen_s(&fp, stepsFile.c_str(), "rb") == 0 && fp) {
+            fseek(fp, 0, SEEK_END);
+            long sz = ftell(fp);
+            fseek(fp, 0, SEEK_SET);
+            if (sz > 0) {
+                std::string buf(sz, '\0');
+                size_t rd = fread(&buf[0], 1, sz, fp);
+                buf.resize(rd);
+                stepsJson = buf;
+            }
+            fclose(fp);
+        }
+    }
+    if (stepsJson.empty()) return ErrStr("missing_arg_--steps");
+    bool stopOnError = a.hasFlag("--stop_on_error");
+    json steps;
+    try { steps = json::parse(stepsJson); } catch (...) { return ErrStr("bad_steps_json"); }
+    if (!steps.is_array()) return ErrStr("bad_steps_json_need_array");
+    json results = json::array();
+    int failed = 0;
+    for (size_t i = 0; i < steps.size(); ++i) {
+        const json& step = steps[i];
+        if (!step.is_object() || !step.contains("cmd")) {
+            results.push_back(json{{"ok", false}, {"err", "step_missing_cmd"}});
+            failed++;
+            if (stopOnError) break;
+            continue;
+        }
+        ParsedArgs sub;
+        sub.cmd = step["cmd"].get<std::string>();
+        if (step.contains("hwnd")) sub.kv.push_back({"hwnd", std::to_string(step["hwnd"].get<long long>())});
+        if (step.contains("x")) sub.kv.push_back({"x", std::to_string(step["x"].get<long long>())});
+        if (step.contains("y")) sub.kv.push_back({"y", std::to_string(step["y"].get<long long>())});
+        if (step.contains("x1")) sub.kv.push_back({"x1", std::to_string(step["x1"].get<long long>())});
+        if (step.contains("y1")) sub.kv.push_back({"y1", std::to_string(step["y1"].get<long long>())});
+        if (step.contains("x2")) sub.kv.push_back({"x2", std::to_string(step["x2"].get<long long>())});
+        if (step.contains("y2")) sub.kv.push_back({"y2", std::to_string(step["y2"].get<long long>())});
+        if (step.contains("depth")) sub.kv.push_back({"depth", std::to_string(step["depth"].get<int>())});
+        if (step.contains("amount")) sub.kv.push_back({"amount", std::to_string(step["amount"].get<int>())});
+        if (step.contains("duration")) sub.kv.push_back({"duration", std::to_string(step["duration"].get<int>())});
+        if (step.contains("limit")) sub.kv.push_back({"limit", std::to_string(step["limit"].get<int>())});
+        if (step.contains("timeout")) sub.kv.push_back({"timeout", std::to_string(step["timeout"].get<int>())});
+        if (step.contains("query")) sub.kv.push_back({"q", step["query"].get<std::string>()});
+        if (step.contains("text")) sub.kv.push_back({"text", step["text"].get<std::string>()});
+        if (step.contains("keys")) sub.kv.push_back({"keys", step["keys"].get<std::string>()});
+        if (step.contains("name")) sub.kv.push_back({"name", step["name"].get<std::string>()});
+        if (step.contains("direction")) sub.kv.push_back({"direction", step["direction"].get<std::string>()});
+        if (step.contains("button")) sub.kv.push_back({"button", step["button"].get<std::string>()});
+        std::string result = Dispatch(sub, cancel);
+        json item;
+        item["step"] = static_cast<int>(i);
+        item["cmd"] = sub.cmd;
+        // 成功判定：ErrStr 必定带 "err" 字段；无 err 即成功（裸 JSON 如 foreground 也正确判 true）
+        bool ok = result.find("\"err\":") == std::string::npos;
+        item["ok"] = ok;
+        item["result"] = result;
+        results.push_back(std::move(item));
+        if (!ok) { failed++; if (stopOnError) break; }
+    }
+    json body;
+    body["steps"] = std::move(results);
+    body["failed"] = failed;
+    body["total"] = static_cast<int>(steps.size());
+    body["stop_on_error"] = stopOnError;
+    return OkStr(std::move(body));
+}
+
 std::string CmdShowDesktop(const ParsedArgs&) {
     // 官方 Shell COM 接口切换桌面（等效 Win+D，可靠，不依赖快捷键模拟/任务栏坐标）
     if (!win32::ShowDesktop()) return ErrStr("toggle_desktop_failed");
@@ -820,6 +894,7 @@ std::string Dispatch(const ParsedArgs& a, std::atomic<bool>* cancel) {
     if (c == "foreground")      return CmdForeground(a);
     if (c == "send_keys")       return CmdSendKeys(a);
     if (c == "show_desktop")    return CmdShowDesktop(a);
+    if (c == "batch")           return CmdBatch(a, cancel);
     if (c == "geometry")        return CmdGeometry(a);
     if (c == "props")           return CmdProps(a, cancel);
     if (c == "desktop")         return CmdDesktop(a, cancel);
