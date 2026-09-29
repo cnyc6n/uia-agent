@@ -457,4 +457,41 @@ bool SetWindowGeometry(HWND hwnd, long x, long y, long w, long h) {
                         SWP_NOZORDER | SWP_NOACTIVATE) != FALSE;
 }
 
+// ---- 桌面图标宿主 ----
+// 找 WorkerW 且其子窗口含 SHELLDLL_DefView（桌面图标在 SysListView32 里）。
+static BOOL CALLBACK DesktopEnumProc(HWND hwnd, LPARAM lp) {
+    HWND* out = reinterpret_cast<HWND*>(lp);
+    wchar_t cls[128];
+    if (GetClassNameW(hwnd, cls, 128) > 0 && _wcsicmp(cls, L"WorkerW") == 0) {
+        // WorkerW 的子窗口 SHELLDLL_DefView 下有 SysListView32
+        HWND defview = FindWindowExW(hwnd, nullptr, L"SHELLDLL_DefView", nullptr);
+        if (defview) {
+            HWND listview = FindWindowExW(defview, nullptr, L"SysListView32", nullptr);
+            if (listview) {
+                *out = hwnd; // 带桌面图标的 WorkerW
+                return FALSE; // 停止枚举
+            }
+        }
+    }
+    return TRUE;
+}
+
+HWND FindDesktopIconHost() {
+    // 布局 A（Win7 传统）：Progman 直接挂 SHELLDLL_DefView
+    HWND progman = FindWindowW(L"Progman", nullptr);
+    if (progman) {
+        HWND dv = FindWindowExW(progman, nullptr, L"SHELLDLL_DefView", nullptr);
+        if (dv) {
+            HWND lv = FindWindowExW(dv, nullptr, L"SysListView32", nullptr);
+            if (lv) return progman;
+        }
+    }
+    // 布局 B（Win8+）：WorkerW 包一层
+    HWND h = nullptr;
+    EnumWindows(DesktopEnumProc, reinterpret_cast<LPARAM>(&h));
+    if (h) return h;
+    // 兜底：Progman 本身（即使无 DefView 也返回，让调用方尝试）
+    return progman;
+}
+
 } // namespace win32

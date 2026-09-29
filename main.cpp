@@ -1,6 +1,7 @@
 // uia_agent - Windows UI Automation agent (single exe).
 // 入口：参数解析 / 命令分发 / 超时线程模型 / UTF-8 JSON 输出。
 #include <windows.h>
+#include <commctrl.h>
 
 #include <atomic>
 #include <chrono>
@@ -257,6 +258,28 @@ std::string CmdProps(const ParsedArgs& a, std::atomic<bool>* cancel) {
         body["offscreen"] = p.offscreen;
         body["focusable"] = p.focusable;
         if (p.hasValue) body["value"] = p.value;
+    }
+    return OkStr(std::move(body));
+}
+
+std::string CmdDesktop(const ParsedArgs& a, std::atomic<bool>* cancel) {
+    HWND host = win32::FindDesktopIconHost();
+    if (!host) return ErrStr("desktop_not_found");
+    std::vector<UiaHit> hits;
+    QueryFilter f;
+    f.has_type = true;
+    f.control_type = "ListItem";
+    UiaFindElements(host, f, 5000, cancel, hits);
+    json body;
+    body["hwnd"] = static_cast<long long>(reinterpret_cast<intptr_t>(host));
+    body["icons"] = json::array();
+    for (const auto& h : hits) {
+        json item;
+        item["name"] = h.info.name;
+        item["control_type"] = h.info.control_type;
+        item["x"] = h.info.rect.left + h.info.rect.cx() / 2;
+        item["y"] = h.info.rect.top + h.info.rect.cy() / 2;
+        body["icons"].push_back(std::move(item));
     }
     return OkStr(std::move(body));
 }
@@ -774,6 +797,7 @@ std::string Dispatch(const ParsedArgs& a, std::atomic<bool>* cancel) {
     if (c == "send_keys")       return CmdSendKeys(a);
     if (c == "geometry")        return CmdGeometry(a);
     if (c == "props")           return CmdProps(a, cancel);
+    if (c == "desktop")         return CmdDesktop(a, cancel);
     if (c == "clipboard")       return CmdClipboard(a);
     if (c == "wait_for")        return CmdWaitFor(a, cancel);
     if (c == "foreach")         return CmdForeach(a, cancel);

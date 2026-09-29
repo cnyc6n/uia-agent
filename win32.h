@@ -51,7 +51,11 @@ void ForceForeground(HWND hwnd);
 
 // ---- 窗口状态（ShowWindow / SetWindowPos）----
 bool SetWindowTopmost(HWND hwnd, bool topmost);
-bool GetWindowGeometry(HWND hwnd, long& x, long& y, long& w, long& h); // 读位置尺寸（物理像素）
+bool GetWindowGeometry(HWND hwnd, long& x, long& y, long& w, long& h);
+
+// 找桌面图标宿主窗口（含 SHELLDLL_DefView / SysListView32 的 WorkerW，Win8+）。
+// 找不到返回 nullptr。
+HWND FindDesktopIconHost(); // 读位置尺寸（物理像素）
 bool SetWindowGeometry(HWND hwnd, long x, long y, long w, long h); // 写位置尺寸 // WS_EX_TOPMOST 置顶 / 取消置顶
 bool MinimizeWindow(HWND hwnd);                 // SW_MINIMIZE
 bool MaximizeWindow(HWND hwnd);                 // SW_MAXIMIZE
